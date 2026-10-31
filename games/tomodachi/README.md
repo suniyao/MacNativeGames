@@ -93,7 +93,10 @@ claim a hardware sweep across Xbox, PlayStation, Switch, and reconnect cases.
 Preferences live in the native profile's `settings.json`. Existing ten-key and
 face-swap preferences migrate into the diagram mappings. Settings captures guest
 input while open; it does **not** pause the simulation. Native text entry returns
-focus and callbacks to the requesting guest context.
+focus and callbacks to the requesting guest context. `InlineKeyboard::Calc`
+returns the SDK keyboard state; the lifecycle test checks initialized, shown,
+completed, and finalized states. A live Metal 4 Mii name prompt was verified to
+accept typing and update the guest preview without repeatedly reopening.
 
 The regular app profile is `~/Library/Application Support/MacNativeGames/Tomodachi/profile`.
 The port never reads or modifies an emulator's profile or save automatically.
