@@ -57,6 +57,8 @@ finishes and verifies the new app before archiving the installed copy.
   each pass 3,117 synthetic GPU checks with validation; the negative control fails.
   Broader picture correctness remains unverified. Photo capture has separately
   hit an unsupported geometry-stage shader; keep this contribution a draft.
+- Opening a Mii dream bubble has triggered a null shader-entry abort. Additional
+  diagnostics are built; a fix is not yet established.
 - Full island gameplay, long sessions, and save round-trips need more validation.
 - Guarded Mii/cloth heap growth and physical NVN backing alignment need review.
 - Some services/audio effects are incomplete.

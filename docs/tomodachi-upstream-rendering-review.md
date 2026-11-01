@@ -209,3 +209,20 @@ left to the user.
 This resolves the reproduced highlight patches, not every rendering defect.
 Broader gameplay/save validation and unsupported photo geometry remain open.
 Extra copies/pass boundaries may affect performance; no performance claim.
+
+### Dream-bubble crash triage, 2026-10-31 (unresolved)
+
+The supplied report (incident `6A8E029B-7210-4542-8F1F-0FE857B1DCA1`,
+17:52:41 local, PID 54438) aborts on the render submission thread in `prog_get`.
+The matching regular profile log ends in `FATAL null TOTK shader binary`. This
+is distinct from the earlier unsupported stage-2 photo failure. The user reports
+clicking a Mii's dream bubble immediately before the crash.
+
+Added diagnostics preserve program address, magic, serial, stage count/index,
+control/code pointers, and frame at failure; anomalous setter inputs and binds
+are logged without enabling all object logs. This is diagnostic instrumentation,
+not a verified fix or permission to discard the failing draw. Metal 4 and the
+isolated Metal 3 builds completed. A copied-save session is outside source at
+`~/Library/Application Support/MacNativeGames/Tomodachi/tests/null-shader-bcodlpux`.
+The first run stopped on a test-only HID configuration; retry enables the regular
+controller service overrides explicitly. Dream entry reproduction is pending.

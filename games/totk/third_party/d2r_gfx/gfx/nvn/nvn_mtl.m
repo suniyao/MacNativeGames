@@ -5157,7 +5157,7 @@ static __unsafe_unretained NvProg *prog_get(const prog_t *cp) {   // 只在提�
     NvProg *o = [NvProg new];
     for (unsigned i = 0; i < p->nstage; i++) {
         const uint8_t *control=p->sd[i].control;uint32_t length=0,nvn_stage=0;
-        if (!control || !p->sd[i].data) MDIE("null TOTK shader binary");
+        if (!control || !p->sd[i].data) MDIE("null shader binary: program=%p magic=%#x serial=%llu count=%u entry=%u control=%p data=%#llx frame=%llu", (const void *)p, p->magic, (unsigned long long)p->serial, p->nstage, i, control, (unsigned long long)p->sd[i].data, (unsigned long long)atomic_load(&g_cur_frame));
         memcpy(&length,control+0x704,4);memcpy(&nvn_stage,control+0x714,4);
         if (!length || length>16*1024*1024) MDIE("invalid TOTK shader code length %u",length);
         // Host NVN GPU addresses are CPU addresses (MemoryPoolGetBufferAddress).

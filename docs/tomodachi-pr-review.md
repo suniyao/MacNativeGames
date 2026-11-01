@@ -9,7 +9,7 @@ fork on 2026-10-31. Opening an upstream PR still requires separate approval.
 - Branch: `codex/tomodachi-contribution`
 - Parent/base: `ly05010419/MacNativeGames:main`
 - Base verified from upstream: `933b6a0d1438de160208a0a13eb5e8d7a2cb8094`
-- Proposed head: `ee44acc3234fcca7a8d9dfc05ad5341a0487e9b5`
+- Proposed head: `23d4e0d9435f1bd01177ef0a76c963fedb237252`
 - PR status: **draft**, pending broader graphics and gameplay validation
 - Proposed title/body: [tomodachi-pr-description.md](tomodachi-pr-description.md)
 
@@ -78,7 +78,9 @@ the proposed PR base.
 - `3e8a525`: `fix: return native inline keyboard state to the game`
 - `58401f4`: `fix: preserve submitted names without signaling keyboard exit`
 - `ee44acc`: `fix: snapshot depth inputs used by character lighting`
-- 567 added/changed files, 117,575 added lines; most are required local copies of
+- `23d4e0d`: `chore: trace missing shader entries during dream crash diagnosis`
+  (diagnostics only; the dream-bubble crash remains unresolved)
+- 567 added/changed files, 117,584 added lines; most are required local copies of
   runtime and licensed shader dependencies under the parent's self-contained
   layout rule. The only outside change is one added README line.
 - Parent suite: 1,302 tests, 169 skipped, one untouched BOTW settings test failed
