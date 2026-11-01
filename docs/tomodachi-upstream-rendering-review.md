@@ -226,3 +226,9 @@ isolated Metal 3 builds completed. A copied-save session is outside source at
 `~/Library/Application Support/MacNativeGames/Tomodachi/tests/null-shader-bcodlpux`.
 The first run stopped on a test-only HID configuration; retry enables the regular
 controller service overrides explicitly. Dream entry reproduction is pending.
+
+Follow-up: the user reported no further issue during later play, but the dream
+bubble had disappeared and could not be clicked for the instrumented retry.
+No verified dream-crash fix is claimed. The copied-save diagnostic was closed
+when preparing the upstream contribution. Its instrumentation remains on the
+development backup branches and is omitted from `codex/tomodachi-upstream`.
