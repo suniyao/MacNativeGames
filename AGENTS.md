@@ -11,3 +11,10 @@
 - `.gitignore` 只控制提交，不代表可以在项目内堆积临时文件。既有开发产物和用户数据不得因此擅自删除。
 
 本机现有产物统一放在 `/Volumes/mac-APFS/MacNativeGames-artifacts`：`apps` 存放已生成 App，`development` 存放已有开发缓存，按日期的目录存放历史测试归档。桌面保留原来的唯一游戏入口，直接指向外部 App。
+
+# Git workflow
+
+User preference: after a fix is verified, commit it and push to the user fork
+(`suniyao/MacNativeGames`) promptly. Keep development backups separate from the
+clean upstream contribution branch. Opening an upstream PR remains a separate
+user approval; do not force-push or include game data/build products.

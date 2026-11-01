@@ -12,6 +12,9 @@
 #define NATIVE_GAME_TITLE "Tears of the Kingdom"
 #endif
 static NSWindow *window;
+extern int runtime_title_settings_key(unsigned) __attribute__((weak_import));
+extern int runtime_title_input_blocked(void) __attribute__((weak_import));
+extern double runtime_title_drawable_scale(void) __attribute__((weak_import));
 uint64_t dm_nvn_frame_count(void);   /* gfx/nvn/hle_nvn.c: game frames presented so far */
 static CAMetalLayer *metalLayer;
 static NSView *bootOverlay;
@@ -97,6 +100,7 @@ static CVReturn vsync_callback(CVDisplayLinkRef link,const CVTimeStamp *now,cons
 @implementation TOTKInputView
 -(BOOL)acceptsFirstResponder{return YES;}
 -(void)nativePointer:(NSEvent *)event phase:(int)phase{
+ if(runtime_title_input_blocked&&runtime_title_input_blocked())return;
  extern void runtime_title_pointer(int,double,double) __attribute__((weak_import));
  if(!runtime_title_pointer)return;
  NSPoint p=[self convertPoint:event.locationInWindow fromView:nil];
@@ -110,7 +114,7 @@ static CVReturn vsync_callback(CVDisplayLinkRef link,const CVTimeStamp *now,cons
 -(void)mouseDown:(NSEvent *)e{[self nativePointer:e phase:0];}
 -(void)mouseDragged:(NSEvent *)e{[self nativePointer:e phase:1];}
 -(void)mouseUp:(NSEvent *)e{[self nativePointer:e phase:2];}
--(void)keyDown:(NSEvent *)e{runtime_input_key(e.keyCode,1);}
+-(void)keyDown:(NSEvent *)e{if(runtime_title_settings_key&&e.keyCode==18){if(!e.isARepeat)runtime_title_settings_key(e.keyCode);return;}if(runtime_title_input_blocked&&runtime_title_input_blocked())return;runtime_input_key(e.keyCode,1);}
 -(void)keyUp:(NSEvent *)e{runtime_input_key(e.keyCode,0);}
 -(void)flagsChanged:(NSEvent *)e{if(e.keyCode==56)runtime_input_key(56,!!(e.modifierFlags&NSEventModifierFlagShift));if(e.keyCode==58)runtime_input_key(58,!!(e.modifierFlags&NSEventModifierFlagOption));}
 @end
@@ -121,13 +125,14 @@ static CVReturn vsync_callback(CVDisplayLinkRef link,const CVTimeStamp *now,cons
    for the screen. 1 = the window's native 2x Retina pixels (3690x2074 here, default); 0.5 = 1x (1845x1037), the
    performance mode measured at ~110 fps in the cave versus ~100 fps at 2x. It started as a test knob (exercise the
    2K output path on a screen smaller than that, 2026-10-17) and is now also the resolution/performance switch. */
-static CGFloat drawable_scale(void){static CGFloat f=-1;if(f<0){const char *e=getenv("TOTK_DRAWABLE_SCALE");f=e?atof(e):1;if(f<0.25||f>4)f=1;}return f;}
+static CGFloat drawable_scale(void){if(runtime_title_drawable_scale)return runtime_title_drawable_scale();static CGFloat f=-1;if(f<0){const char *e=getenv("TOTK_DRAWABLE_SCALE");f=e?atof(e):1;if(f<0.25||f>4)f=1;}return f;}
 static void front_sync_drawable(void){
  NSView *v=window.contentView;if(!v||!metalLayer)return;
  CGFloat s=window.backingScaleFactor>0?window.backingScaleFactor:1,ts=drawable_scale();CGSize px=CGSizeMake(round(v.bounds.size.width*s*ts),round(v.bounds.size.height*s*ts));
  if(px.width<1||px.height<1||CGSizeEqualToSize(metalLayer.drawableSize,px))return;
  metalLayer.contentsScale=s;metalLayer.drawableSize=px;fprintf(stderr,"[totk] window drawable %.0fx%.0f (scale %.0f)\n",px.width,px.height,s);
 }
+void runtime_front_refresh_drawable(void){dispatch_async(dispatch_get_main_queue(), ^{front_sync_drawable();});}
 @interface TOTKWindowDelegate:NSObject<NSWindowDelegate>
 @end
 static int front_storage_busy(void) {
@@ -208,6 +213,8 @@ void runtime_front_run(void(*callback)(void)){
   else if (window_max) [window setFrame:vis display:YES];
   else [window center];
   front_sync_drawable();
+  extern void runtime_title_frontend_ready(void *) __attribute__((weak_import));
+  if(runtime_title_frontend_ready)runtime_title_frontend_ready((__bridge void *)window);
   if(assume_focus()){[window orderFrontRegardless];}else{[window makeKeyAndOrderFront:nil];[NSApp activateIgnoringOtherApps:YES];}   /* in front of other apps' windows, keyboard left alone */
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC),dispatch_get_main_queue(),^{note_occlusion(" 3 s after opening");});
   atomic_store(&focused,1);

@@ -119,7 +119,11 @@ static id<MTLComputePipelineState> cg_pso(int out) {
 static id<MTL4ArgumentTable> cg_table(void) {
     static id<MTL4ArgumentTable> t;
     if (!t) { MTL4ArgumentTableDescriptor *d = [MTL4ArgumentTableDescriptor new]; d.maxTextureBindCount = 12; d.maxBufferBindCount = 1; NSError *e = nil;
+#if DM_NVN_M3
         t = [M3ArgTable new]; if (!t) MDIE("cube-merge argument table: %s", e.localizedDescription.UTF8String); }
+#else
+        t = [g_dev newArgumentTableWithDescriptor:d error:&e]; if (!t) MDIE("cube-merge argument table: %s", e.localizedDescription.UTF8String); }
+#endif
     return t;
 }
 // 1 = done by the kernel, 0 = the caller blits (no kernel, or a cube the copy-out could not write)
@@ -135,18 +139,27 @@ static int cg_copy_kernel(int out, const cg_group *g, const cg_temp *tp, __stron
     id<MTL4ComputeCommandEncoder> b = blit();
 #endif
     id<MTL4ArgumentTable> at = cg_table();
+#if DM_NVN_M3
     m3_attach(at, b, M3_STAGE_COMPUTE);   /* M3 参数表是立即绑定：先挂到编码器，后面的 setTexture/setAddress 才落得进去 | Metal 3 binds immediately: attach before the setters */
     for (int c = 0; c < 6; c++) [at setTexture:ct[c < g->n ? c : 0] atIndex:(NSUInteger)c];   // unused slots repeat cube 0 (never touched: c < n)
     for (int f = 0; f < 6; f++) [at setTexture:tp->t[f] atIndex:(NSUInteger)(6 + f)];
+#else
+    for (int c = 0; c < 6; c++) [at setTexture:ct[c < g->n ? c : 0].gpuResourceID atIndex:(NSUInteger)c];
+    for (int f = 0; f < 6; f++) [at setTexture:tp->t[f].gpuResourceID atIndex:(NSUInteger)(6 + f)];
+#endif
     id<MTLBuffer> pb; size_t off = arena_alloc(64, &pb); uint32_t *p = (uint32_t *)((uint8_t *)pb.contents + off); memset(p, 0, 64);
     p[0] = (uint32_t)g->n; p[1] = (uint32_t)out; for (int c = 0; c < g->n; c++) p[4 + c] = (uint32_t)g->m[c].lv;
     [at setAddress:pb.gpuAddress + off atIndex:0];
+#if DM_NVN_M3
     [b setComputePipelineState:ps];
+#else
+    [b setArgumentTable:at]; [b setComputePipelineState:ps];
+#endif
     [b dispatchThreads:MTLSizeMake(g->w, g->h, 6 * (NSUInteger)g->n) threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
 #if DM_NVN_M3
     m4_end(b); args_dirty_all();
 #else
-    m3_attach(g_ct, b, M3_STAGE_COMPUTE); args_dirty_all();   // the replay's own dispatches re-bind their table and arguments
+    [b setArgumentTable:g_ct]; args_dirty_all();   // the replay's own dispatches re-bind their table and arguments
 #endif
     g_cg.kcopies++; return 1;
 }

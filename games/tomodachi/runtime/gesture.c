@@ -3,6 +3,8 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
+static int trace_input(void){static int on=-1;if(on<0)on=getenv("TOMODACHI_INPUT_TRACE")!=NULL;return on;}
 typedef struct {
  uint64_t sample,context;uint32_t type,direction,x,y;int32_t dx,dy;
  float vx,vy;uint32_t attributes;float scale,rotation;int32_t count;
@@ -19,9 +21,10 @@ _Static_assert(sizeof(Touch)==40,"TouchState ABI");
 static Touch touches[64],touch_current;
 static unsigned touch_head,touch_length;
 static uint64_t touch_sample;
-static void initialize_touch(void) {pthread_mutex_lock(&mutex);initialized=1;pthread_mutex_unlock(&mutex);}
-static void initialize_gesture(void) {pthread_mutex_lock(&mutex);initialized=1;pthread_mutex_unlock(&mutex);}
+static void initialize_touch(void) {if(trace_input())fprintf(stderr,"[tomodachi-input] InitializeTouchScreen\n");pthread_mutex_lock(&mutex);initialized=1;pthread_mutex_unlock(&mutex);}
+static void initialize_gesture(void) {if(trace_input())fprintf(stderr,"[tomodachi-input] InitializeGesture\n");pthread_mutex_lock(&mutex);initialized=1;pthread_mutex_unlock(&mutex);}
 void runtime_title_pointer(int phase,double nx,double ny) {
+ if(trace_input())fprintf(stderr,"[tomodachi-input] pointer phase=%d xy=%.4f,%.4f initialized=%d\n",phase,nx,ny,initialized);
  pthread_mutex_lock(&mutex);
  if(!initialized){pthread_mutex_unlock(&mutex);return;}
  int x=(int)llround(fmax(0,fmin(1,nx))*1279),y=(int)llround(fmax(0,fmin(1,ny))*719);
@@ -44,6 +47,7 @@ static int gesture_states(Gesture *out,int capacity) {
  if(!out||capacity<=0)return 0;
  pthread_mutex_lock(&mutex);
  if(!initialized){pthread_mutex_unlock(&mutex);return 0;}
+ static unsigned calls;if(trace_input()&&calls++%600==0)fprintf(stderr,"[tomodachi-input] GetGestureStates capacity=%d queued=%u\n",capacity,length);
  unsigned n=length<(unsigned)capacity?length:(unsigned)capacity;
  if(n){for(unsigned i=0;i<n;i++)out[n-i-1]=queue[(head+i)%64];head=(head+n)%64;length-=n;}
  else{current.sample=++sample;current.attributes=0;current.dx=current.dy=0;current.vx=current.vy=0;

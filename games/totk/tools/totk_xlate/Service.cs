@@ -293,6 +293,7 @@ static class ShaderService
             ["tex"] = GetObj(rq, "tex").DeepClone(), ["img"] = GetObj(rq, "img").DeepClone(), ["attr"] = GetObj(rq, "attr").DeepClone(), ["fout"] = GetObj(rq, "fout").DeepClone(),
         };
         if (Truthy(Get(rq, "local"))) job["local"] = rq["local"].DeepClone();
+        if (Truthy(Get(rq, "shared"))) job["shared"] = rq["shared"].DeepClone();
         job["depth_minus_w"] = Truthy(Get(rq, "depth_minus_w"));   // nvnDeviceSetDepthMode(NEAR_IS_MINUS_W): clip z converted to Metal's 0..w
         Translate(job);
         JsonObject res = ReadRes(variant);

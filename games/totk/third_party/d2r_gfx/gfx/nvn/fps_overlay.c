@@ -55,7 +55,11 @@ static _Atomic int g_hints_visible = 1;
 int fps_overlay_hints_enabled(void) { return atomic_load_explicit(&g_hints_visible, memory_order_relaxed); }
 int fps_overlay_toggle_hints(void) { return !atomic_fetch_xor_explicit(&g_hints_visible, 1, memory_order_relaxed); }
 
+static _Atomic int g_fps_override = -1;
+void fps_overlay_set_enabled(int enabled) { atomic_store(&g_fps_override, !!enabled); }
 int fps_overlay_enabled(void) {
+    int override = atomic_load(&g_fps_override);
+    if (override >= 0) return override && totk_overlays_visible();
     static int on = -1;
     if (on < 0) { const char *e = getenv("TOTK_FPS_OVERLAY"); on = !(e && !strcmp(e, "0")); }
     return on && totk_overlays_visible();

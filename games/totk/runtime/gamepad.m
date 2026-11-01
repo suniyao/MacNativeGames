@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include "runtime.h"
 
+extern void runtime_title_gamepad_event(RuntimeGamepadState) __attribute__((weak_import));
+extern uint64_t runtime_title_physical_buttons(uint64_t,const char *,const char *) __attribute__((weak_import));
 static pthread_mutex_t gamepadLock = PTHREAD_MUTEX_INITIALIZER;
 static RuntimeGamepadState gamepadState;
 static uint64_t pressedEdges;
@@ -81,14 +83,16 @@ static void refresh_gamepads(void) {
         GCExtendedGamepad *pad = controller.extendedGamepad;
         if (pad) {
             next.connected = 1;
-            next.buttons |= gamepad_buttons(pad);
+            uint64_t buttons=gamepad_buttons(pad);
+            next.buttons |= runtime_title_physical_buttons?runtime_title_physical_buttons(buttons,controller.productCategory.UTF8String,controller.vendorName.UTF8String):buttons;
             next.lx = stronger_axis(next.lx, stick_axis(pad.leftThumbstick.xAxis.value));
             next.ly = stronger_axis(next.ly, stick_axis(pad.leftThumbstick.yAxis.value));
             next.rx = stronger_axis(next.rx, stick_axis(pad.rightThumbstick.xAxis.value));
             next.ry = stronger_axis(next.ry, stick_axis(pad.rightThumbstick.yAxis.value));
         } else if (controller.gamepad) {
             next.connected = 1;
-            next.buttons |= gamepad_buttons_legacy(controller.gamepad);
+            uint64_t buttons=gamepad_buttons_legacy(controller.gamepad);
+            next.buttons |= runtime_title_physical_buttons?runtime_title_physical_buttons(buttons,controller.productCategory.UTF8String,controller.vendorName.UTF8String):buttons;
         }
     }
     next.buttons = gamepad_swap_abxy(next.buttons);
@@ -107,6 +111,7 @@ static void refresh_gamepads(void) {
     }
     gamepadState = next;
     pthread_mutex_unlock(&gamepadLock);
+    if(runtime_title_gamepad_event)runtime_title_gamepad_event(next);
 }
 
 static void attach_gamepad(GCController *controller) {

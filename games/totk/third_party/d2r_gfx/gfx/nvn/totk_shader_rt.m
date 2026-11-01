@@ -148,10 +148,23 @@ static int deps_match(NSDictionary *deps, NSDictionary *ans) {
 NSString *totk_rt_variant(NSString *shader, int stage, const uint8_t *control, const uint8_t *code, NSDictionary *answers, NSArray *local) {
     uint64_t started = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
     pthread_mutex_lock(&g_rt_lock);
+    /* NVN compute shared-memory bytes (Ori upstream PR #693). Keep it in
+       variant identity so an older zero-sized translation cannot be reused. */
+    uint32_t shared = 0;
+    if (stage == 5) memcpy(&shared, control + 0x754, sizeof shared);
+    if (stage == 5 && getenv("TOTK_COMPUTE_SHARED_LOG")) {
+        static NSMutableSet *seen;
+        if (!seen) seen = [NSMutableSet set];
+        if (![seen containsObject:shader]) {
+            [seen addObject:shader];
+            LOG("[compute-shared] shader=%s bytes=%u local=%s", shader.UTF8String, shared, local.description.UTF8String);
+        }
+    }
     NSMutableArray *vs = variants_of(shader);
     for (NSUInteger i = 0; i < vs.count; i++) {
         NSDictionary *v = vs[i];
         if (!deps_match(v[@"deps"], answers)) continue;
+        if (shared && ![v[@"shared"] isEqual:@(shared)]) continue;
         NSString *found = v[@"variant"];
         if (!g_msl_checked) g_msl_checked = [NSMutableSet set];
         BOOL checked = [g_msl_checked containsObject:found];
@@ -177,7 +190,9 @@ NSString *totk_rt_variant(NSString *shader, int stage, const uint8_t *control, c
     if (!c1t || c1t > 16u << 20 || c1o > c1t || (stage != 5 && c1o < 0x30)) die("shader %s: code area %#x / c1 %#x", shader.UTF8String, c1t, c1o);
     NSString *stage_name = stage == 0 ? @"vs" : stage == 1 ? @"ps" : stage == 5 ? @"cs" : nil;
     if (!stage_name) die("shader %s: NVN stage %d has no translation chain (tessellation/geometry)", shader.UTF8String, stage);
-    uint8_t md[32]; NSData *ad = [json_string(answers) dataUsingEncoding:NSUTF8StringEncoding]; CC_SHA256(ad.bytes, (CC_LONG)ad.length, md);
+    uint8_t md[32]; NSDictionary *named = answers;
+    if (shared) { NSMutableDictionary *m = [answers mutableCopy]; m[@"shared"] = @(shared); named = m; }
+    NSData *ad = [json_string(named) dataUsingEncoding:NSUTF8StringEncoding]; CC_SHA256(ad.bytes, (CC_LONG)ad.length, md);
     NSString *variant = [NSString stringWithFormat:@"%@-%@", shader, hex(md, 6)];
     NSString *code_path = [totk_rt_dir() stringByAppendingFormat:@"/%@.code", variant];
     // Graphics code drops the 0x30-byte NVN header (the translator wants SPH + instructions); compute keeps it, as in D2R's build.
@@ -186,6 +201,7 @@ NSString *totk_rt_variant(NSString *shader, int stage, const uint8_t *control, c
     NSMutableDictionary *rq = [NSMutableDictionary dictionaryWithDictionary:@{@"variant": variant, @"stage": stage_name, @"code": code_path, @"c1": hex(code + c1o, c1t - c1o)}];
     [rq addEntriesFromDictionary:answers];
     if (local) rq[@"local"] = local;
+    if (shared) rq[@"shared"] = @(shared);
     rq[@"depth_minus_w"] = totk_depth_near_minus_w() ? @YES : @NO;   // nvnDeviceSetDepthMode: NEAR_IS_MINUS_W needs the GL -> Metal clip-z conversion in every vertex shader
 #if TARGET_OS_IPHONE
     // No translator on the phone (Python + .NET + SPIRV-Cross): the variant cache is translated on the Mac and copied over.
@@ -220,7 +236,7 @@ NSString *totk_rt_variant(NSString *shader, int stage, const uint8_t *control, c
     NSData *jd = [NSData dataWithContentsOfFile:[totk_rt_dir() stringByAppendingFormat:@"/%@_b.json", variant]];
     NSDictionary *refl = jd ? [NSJSONSerialization JSONObjectWithData:jd options:0 error:nil] : nil;
     if (![refl isKindOfClass:[NSDictionary class]]) die("shader %s: reflection missing", variant.UTF8String);
-    [vs addObject:@{@"variant": variant, @"deps": refl[@"deps"] ?: @{}}];
+    [vs addObject:shared ? @{@"variant": variant, @"deps": refl[@"deps"] ?: @{}, @"shared": @(shared)} : @{@"variant": variant, @"deps": refl[@"deps"] ?: @{}}];
     [g_msl_checked addObject:variant];
     [[json_string(vs) dataUsingEncoding:NSUTF8StringEncoding] writeToFile:index_path(shader) atomically:YES];
     g_translated++;

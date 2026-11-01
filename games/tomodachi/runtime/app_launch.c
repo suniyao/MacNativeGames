@@ -42,11 +42,14 @@ char *runtime_title_app_configure(void){
  setenv("TOTK_NATIVE_ROOT",work,1);setenv("TOTK_SHADER_SERVICE","native",1);
  setenv("TOTK_PROFILE_DIR",profile,1);setenv("TOTK_ROMFS",romfs,1);setenv("TOTK_ROMFS_PATCHES","0",1);
  setenv("TOTK_SHADER_CACHE",cache,1);setenv("TOTK_GAME_SLOT_DIR",slot,1);setenv("TOTK_SLOT_OWNER","user",1);
+ /* Read/write attachment feedback must sample an immutable pre-draw image. */
+ setenv("TOTK_ATT_SNAPSHOT","1",0);
  setenv("TOTK_GPU_BLOCKRT","1",1);setenv("TOTK_GPU_WIDEN","1",1);
  setenv("TOTK_GPU_ALLOW_SUBMIT","1",1);setenv("TOTK_GPU_MIDCLEAR","1",1);setenv("TOTK_ASYNC_REPLAY","0",1);setenv("TOTK_GPU_KEEPALIVE","0",1);
  setenv("TOTK_FPS_OVERLAY","0",1);setenv("TOTK_SHADER_OVERLAY","0",1);setenv("TOTK_LOAD_OVERLAY","0",1);
  unsetenv("TOTK_HEADLESS");unsetenv("TOTK_VERIFY_STARTUP");unsetenv("TOTK_INPUT_FILE");unsetenv("TOTK_AUTOLOAD");unsetenv("TOTK_ASSUME_FOCUS");
  snprintf(logpath,sizeof logpath,"%s/runtime.log",profile);int fd=open(logpath,O_WRONLY|O_CREAT|O_APPEND,0600);
  if(fd>=0){dup2(fd,STDOUT_FILENO);dup2(fd,STDERR_FILENO);close(fd);fprintf(stderr,"\n[tomodachi] new app launch pid=%d\n",getpid());}
+ extern void runtime_title_settings_prepare(void);runtime_title_settings_prepare();
  return rewritten;
 }

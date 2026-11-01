@@ -11,6 +11,9 @@ typedef struct{int64_t sampling;uint64_t buttons;int32_t lx,ly,rx,ry;uint32_t at
 _Static_assert(sizeof(NpadState)==40,"Npad full-key ABI");
 static pthread_mutex_t inputLock=PTHREAD_MUTEX_INITIALIZER;
 static unsigned char keys[128];static uint64_t pending;
+extern unsigned runtime_title_map_key(unsigned) __attribute__((weak_import));
+extern uint64_t runtime_title_map_buttons(uint64_t) __attribute__((weak_import));
+extern int runtime_title_input_blocked(void) __attribute__((weak_import));
 static uint32_t styles=1;static bool enabled,allowed=true;static int holdType;
 static int64_t sample;static uint64_t padSeen;
 /* F/T/H/G map the D-pad left/up/right/down, keeping both analog-stick mappings independent. */
@@ -33,7 +36,7 @@ static void user_input(const char *what){
    MetalFX 2K -> native 2K -> off. Key 4 (key code 21) hides or shows the FPS, shader-count and system-load boxes
    together. Key 5 (key code 22) toggles the shortcut reminder. Held-key repeats do not toggle. */
 enum { KEY_MFX_TOGGLE = 18, KEY_INTERP_TOGGLE = 19, KEY_OUTPUT_MODE_CYCLE = 20, KEY_OVERLAY_TOGGLE = 21 };
-void runtime_input_key_synthetic(unsigned code,int down){if(code>=128)return;pthread_mutex_lock(&inputLock);int press=down&&!keys[code];if(down&&!keys[code])pending|=button(code);keys[code]=(unsigned char)!!down;pthread_mutex_unlock(&inputLock);
+void runtime_input_key_synthetic(unsigned code,int down){if(code>=128)return;if(runtime_title_map_key)code=runtime_title_map_key(code);if(code>=128)return;pthread_mutex_lock(&inputLock);int press=down&&!keys[code];if(down&&!keys[code])pending|=button(code);keys[code]=(unsigned char)!!down;pthread_mutex_unlock(&inputLock);
  if(press&&code==KEY_MFX_TOGGLE){extern void dm_gfx_set_flag(const char *name,int v);dm_gfx_set_flag("mfx_upscale",-1);}
  if(press&&code==KEY_INTERP_TOGGLE){extern void dm_gfx_set_flag(const char *name,int v);dm_gfx_set_flag("mfx_interp",-1);}
  if(press&&code==KEY_OUTPUT_MODE_CYCLE)runtime_output_mode_cycle();
@@ -61,11 +64,13 @@ static int handheld_states(NpadState *out,int max,const uint32_t *id){return pad
 static int pad_states(NpadState *out,int max,const uint32_t *id,uint32_t want_style){if(max<=0)return 0;if(id)input_log(want_style==2?"handheld state":"full-key state",*id);if(!out||!id)runtime_fail("controller output pointer");pthread_mutex_lock(&inputLock);NpadState state={.sampling=++sample};if(enabled&&allowed&&*id==pad_id()&&want_style==pad_style()&&(styles&want_style)){
  state.attributes=1;for(unsigned i=0;i<128;i++)if(keys[i])state.buttons|=button(i);state.buttons|=pending;pending=0;
  state.lx=32767*((int)keys[2]-(int)keys[0]);state.ly=32767*((int)keys[13]-(int)keys[1]);state.rx=32767*((int)keys[124]-(int)keys[123]);state.ry=32767*((int)keys[126]-(int)keys[125]);
- RuntimeGamepadState pad;runtime_gamepad_read(&pad);state.buttons|=pad.buttons;
+ RuntimeGamepadState pad;runtime_gamepad_read(&pad);state.buttons|=runtime_title_map_buttons?runtime_title_map_buttons(pad.buttons):pad.buttons;
  if(pad.buttons&~padSeen||abs(pad.lx)>16384||abs(pad.ly)>16384||abs(pad.rx)>16384||abs(pad.ry)>16384)user_input("controller");padSeen=pad.buttons;
  if(abs(pad.lx)>abs(state.lx))state.lx=pad.lx;if(abs(pad.ly)>abs(state.ly))state.ly=pad.ly;
  if(abs(pad.rx)>abs(state.rx))state.rx=pad.rx;if(abs(pad.ry)>abs(state.ry))state.ry=pad.ry;
- }*out=state;pthread_mutex_unlock(&inputLock);return 1;}
+ }if(runtime_title_input_blocked&&runtime_title_input_blocked()){state.buttons=0;state.lx=state.ly=state.rx=state.ry=0;}
+ if(getenv("TOMODACHI_INPUT_TRACE")){static uint64_t prev;if(state.buttons!=prev){fprintf(stderr,"[tomodachi-input] guest pad id=%#x buttons=%#llx connected=%u\n",*id,(unsigned long long)state.buttons,state.attributes);prev=state.buttons;}}
+ *out=state;pthread_mutex_unlock(&inputLock);return 1;}
 static int disconnected_states(NpadState *out,int max,const uint32_t *id){if(id)input_log("joy-con state",*id);if(max<=0)return 0;if(!out)runtime_fail("controller output pointer");pthread_mutex_lock(&inputLock);*out=(NpadState){.sampling=++sample};pthread_mutex_unlock(&inputLock);return 1;}
 static void hold_type(int type){if(type<0||type>1)runtime_fail("invalid joy hold type");holdType=type;(void)holdType;}
 static void disconnect(const uint32_t *id){if(!id)runtime_fail("disconnect id");input_log("disconnect",*id);if(*id==pad_id()){   /* only the pad in use: in handheld mode TOTK disconnects player 1 */pthread_mutex_lock(&inputLock);allowed=false;pthread_mutex_unlock(&inputLock);runtime_input_clear();}}
