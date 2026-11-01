@@ -120,6 +120,8 @@ launching the executable to append a native runtime log to that profile.
   isolated the cause; this does not establish picture accuracy in every scene.
   Full island gameplay, long sessions, and save round-trips require more testing.
   Photo capture has separately hit an unsupported geometry-stage shader.
+  Opening a Mii dream bubble has also triggered a null shader-entry abort;
+  setup/bind/failure diagnostics are added, but that crash is unresolved.
 - Some services are partial implementations; some audio effects remain unsupported.
   The runtime expands verified Mii/cloth child heaps and aligns physical NVN pool
   backing for Darwin pages; these guarded compatibility patches need review.

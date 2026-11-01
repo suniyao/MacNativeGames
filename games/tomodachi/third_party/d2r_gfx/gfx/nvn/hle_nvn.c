@@ -514,6 +514,10 @@ NVN(nvnProgramSetShaders, NVNboolean, NVNprogram *p, int n, const NVNshaderData 
     if (n < 0 || n > 6) { LOG("【红】ProgramSetShaders 阶段数 %d", n); return 0; }
     mtl_prog_release(o); o->nstage = n; memcpy(o->sd, sd, n * sizeof *sd); o->serial = nvn_new_serial();
     OLOG("ProgramSetShaders %p n=%d data0=%#llx", (void *)p, n, n ? (unsigned long long)sd[0].data : 0ull);
+    /* Keep anomalous inputs visible even when verbose object logging is off.
+       Do not guess a replacement shader or silently discard the draw. */
+    for (int i = 0; i < n; i++) if (!sd[i].control || !sd[i].data)
+        LOG("[program-invalid-set] program=%p serial=%llu count=%d entry=%d control=%p data=%#llx", (void *)p, (unsigned long long)o->serial, n, i, sd[i].control, (unsigned long long)sd[i].data);
     return 1;
 }
 
@@ -1517,7 +1521,10 @@ static void bindprog_log(const prog_t *o, int stages) {
     static nvn_diag_range_cache range;
     static _Atomic unsigned lines;
     nvn_diag_range_value v = nvn_diag_range_get(&range, diag_env_once_on(), bindprog_env);
-    if (v.lo < 0 || (long)g_frame < v.lo || (long)g_frame > v.hi) return;
+    int invalid = o && (o->magic != MAGIC('P','R','O','G') || o->nstage > 6);
+    if (o && o->nstage <= 6) for (unsigned i = 0; i < o->nstage; i++)
+        if (!o->sd[i].control || !o->sd[i].data) invalid = 1;
+    if (!invalid && (v.lo < 0 || (long)g_frame < v.lo || (long)g_frame > v.hi)) return;
     if (atomic_load_explicit(&lines, memory_order_relaxed) >= 20000) return;
     if (atomic_fetch_add_explicit(&lines, 1, memory_order_relaxed) >= 20000) return;
     char b[700]; int n = snprintf(b, sizeof b, "[bindprog] frame=%llu mask=%#x prog=%p serial=%llu nstage=%u data0=%#llx ctl0=%p chain:", (unsigned long long)g_frame, stages, (const void *)o, (unsigned long long)(o ? o->serial : 0), o ? o->nstage : 0, o && o->nstage ? (unsigned long long)o->sd[0].data : 0ull, o && o->nstage ? o->sd[0].control : NULL);
